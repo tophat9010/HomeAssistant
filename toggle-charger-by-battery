@@ -1,0 +1,77 @@
+blueprint:
+  name: Toggle charger by battery
+  description: Switch a smart-plug on or off depending on a battery's level
+  domain: automation
+  input:
+    battery:
+      name: Battery
+      description: This battery's level will control the smart plug
+      selector:
+        entity:
+          domain: sensor
+          device_class: battery
+    target_switch:
+      name: Smart Plug
+      description: The smart plug to switch on or off
+      selector:
+        entity:
+          domain: switch
+    charge_min:
+      name: Lowest Battery Charge
+      description: The lowest charge the battery should be allowed to drop to
+      selector:
+        number:
+          min: 0
+          max: 95
+          step: 5
+          unit_of_measurement: "%"
+          mode: slider
+      default: 30
+    charge_max:
+      name: Highest Battery Charge
+      description: The highest charge the battery should be allowed to reach
+      selector:
+        number:
+          min: 5
+          max: 100
+          step: 5
+          unit_of_measurement: "%"
+          mode: slider
+      default: 80
+    charge_full:
+      name: Full Battery Charge
+      description: The battery is considered full at this percentage
+      selector:
+        number:
+          min: 75
+          max: 100
+          step: 5
+          unit_of_measurement: "%"
+          mode: slider
+      default: 85
+variables:
+  battery: !input battery
+  charge_min: !input charge_min
+  charge_max: !input charge_max
+  charge_full: !input charge_full
+trigger:
+  - platform: state
+    entity_id: !input battery
+action:
+  - variables:
+      charge: '{{ (states(battery) | float) if is_number(states(battery)) else 1 }}'
+      c_max: '{{ charge_max }}'
+      c_min: '{{ charge_min }}'
+  - choose:
+    - conditions: >
+        {{ charge < c_min }}
+      sequence:
+        - service: switch.turn_on
+          target:
+            entity_id: !input target_switch
+    - conditions: >
+        {{ charge >= c_max }}
+      sequence:
+        - service: switch.turn_off
+          target:
+            entity_id: !input target_switch
